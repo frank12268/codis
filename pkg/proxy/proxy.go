@@ -196,9 +196,9 @@ func (s *Server) register() {
 	if _, err := s.topo.CreateProxyInfo(&s.info); err != nil {
 		log.PanicErrorf(err, "create proxy node failed")
 	}
-	if _, err := s.topo.CreateProxyFenceNode(&s.info); err != nil && err != zk.ErrNodeExists {
-		log.PanicErrorf(err, "create fence node failed")
-	}
+	//if _, err := s.topo.CreateProxyFenceNode(&s.info); err != nil && err != zk.ErrNodeExists {
+	//	log.PanicErrorf(err, "create fence node failed")
+	//}
 	log.Warn("********** Attention **********")
 	log.Warn("You should use `kill {pid}` rather than `kill -9 {pid}` to stop me,")
 	log.Warn("or the node resisted on zk will not be cleaned when I'm quiting and you must remove it manually")
@@ -222,6 +222,10 @@ func (s *Server) waitOnline() bool {
 			s.markOffline()
 			return false
 		case models.PROXY_STATE_ONLINE:
+			if _, err := s.topo.CreateProxyFenceNode(&s.info); err != nil && err != zk.ErrNodeExists {
+				log.PanicErrorf(err, "create fence node failed")
+				return false
+			}
 			s.info.State = info.State
 			log.Infof("we are online: %s", s.info.Id)
 			s.rewatchProxy()
