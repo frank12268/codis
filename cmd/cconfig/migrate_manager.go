@@ -67,6 +67,13 @@ func (m *MigrateManager) PostTask(info *MigrateTaskInfo) {
 
 func (m *MigrateManager) loop() error {
 	for {
+		target := getDashboardMaster(m.productName)
+		log.Infof("Current Master is %s", target)
+		if target!=dashboardUID {
+			time.Sleep(time.Second*30)
+			log.Info("[SlavE] not performing migration")
+			continue
+		}
 		time.Sleep(time.Second)
 		info := m.NextTask()
 		if info == nil {

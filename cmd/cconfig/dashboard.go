@@ -19,11 +19,14 @@ import (
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/cors"
 	"github.com/wandoulabs/zkhelper"
+	"github.com/wandoulabs/go-zookeeper/zk"
 
 	"github.com/CodisLabs/codis/pkg/models"
 	"github.com/CodisLabs/codis/pkg/utils"
 	"github.com/CodisLabs/codis/pkg/utils/errors"
 	"github.com/CodisLabs/codis/pkg/utils/log"
+
+	"strings"
 )
 
 func cmdDashboard(argv []string) (err error) {
@@ -127,20 +130,28 @@ func pageSlots(r render.Render) {
 func createDashboardNode() error {
 
 	// make sure root dir is exists
-	rootDir := fmt.Sprintf("/zk/codis/db_%s", globalEnv.ProductName())
-	zkhelper.CreateRecursive(safeZkConn, rootDir, "", 0, zkhelper.DefaultDirACLs())
+	//rootDir := fmt.Sprintf("/zk/codis/db_%s", globalEnv.ProductName())
+	//zkhelper.CreateRecursive(safeZkConn, rootDir, "", 0, zkhelper.DefaultDirACLs())
 
-	zkPath := fmt.Sprintf("%s/dashboard", rootDir)
+	//zkPath := fmt.Sprintf("%s/dashboard", rootDir)
 	// make sure we're the only one dashboard
-	if exists, _, _ := safeZkConn.Exists(zkPath); exists {
-		data, _, _ := safeZkConn.Get(zkPath)
-		return errors.New("dashboard already exists: " + string(data))
-	}
+	//if exists, _, _ := safeZkConn.Exists(zkPath); exists {
+	//	data, _, _ := safeZkConn.Get(zkPath)
+	//	return errors.New("dashboard already exists: " + string(data))
+	//}
 
-	content := fmt.Sprintf(`{"addr": "%v", "pid": %v}`, globalEnv.DashboardAddr(), os.Getpid())
-	pathCreated, err := safeZkConn.Create(zkPath, []byte(content), 0, zkhelper.DefaultFileACLs())
+	//content := fmt.Sprintf(`{"addr": "%v", "pid": %v}`, globalEnv.DashboardAddr(), os.Getpid())
+	//pathCreated, err := safeZkConn.Create(zkPath, []byte(content), 0, zkhelper.DefaultFileACLs())
+
+	dashPath := fmt.Sprintf("/zk/codis/db_%s/dashboard", globalEnv.ProductName())
+	zkhelper.CreateRecursive(safeZkConn, dashPath, "", 0, zkhelper.DefaultDirACLs())
+	content := globalEnv.DashboardAddr()
+	dashNode := fmt.Sprintf("%s/%s", dashPath, "")
+	pathCreated, err := safeZkConn.Create(dashNode, []byte(content), zk.FlagSequence+zk.FlagEphemeral, zkhelper.DefaultFileACLs())
+	dashboardUID = pathCreated[strings.LastIndex(pathCreated,"/")+1:]
+
 	createdDashboardNode = true
-	log.Infof("dashboard node created: %v, %s", pathCreated, string(content))
+	log.Infof("dashboard node created: %v(%v), %s", pathCreated, dashboardUID, string(content))
 	log.Warn("********** Attention **********")
 	log.Warn("You should use `kill {pid}` rather than `kill -9 {pid}` to stop me,")
 	log.Warn("or the node resisted on zk will not be cleaned when I'm quiting and you must remove it manually")
@@ -149,11 +160,11 @@ func createDashboardNode() error {
 }
 
 func releaseDashboardNode() {
-	zkPath := fmt.Sprintf("/zk/codis/db_%s/dashboard", globalEnv.ProductName())
-	if exists, _, _ := safeZkConn.Exists(zkPath); exists {
-		log.Infof("removing dashboard node")
-		safeZkConn.Delete(zkPath, 0)
-	}
+	//zkPath := fmt.Sprintf("/zk/codis/db_%s/dashboard", globalEnv.ProductName())
+	//if exists, _, _ := safeZkConn.Exists(zkPath); exists {
+	//	log.Infof("removing dashboard node")
+	//	safeZkConn.Delete(zkPath, 0)
+	//}
 }
 
 func runDashboard(addr string, httpLogFile string) {
@@ -236,6 +247,20 @@ func runDashboard(addr string, httpLogFile string) {
 
 	// create long live migrate manager
 	globalMigrateManager = NewMigrateManager(safeZkConn, globalEnv.ProductName())
+
+	// dashboard keep alive
+	go func(){
+		dashNode := fmt.Sprintf("/zk/codis/db_%s/dashboard/%s", globalEnv.ProductName(), dashboardUID)
+		tick := time.Tick(time.Second)
+		for _ = range tick {
+			if exists, _, _ := safeZkConn.Exists(dashNode); exists {
+				log.Debugf("Heartbeat : (%v)%s exists", dashboardUID, globalEnv.DashboardAddr())
+			} else {
+				log.Errorf("Heartbeat: (%v)%s not exist", dashboardUID, globalEnv.DashboardAddr())
+				panic("dashboard node %v not exist, suicide")
+			}
+		}
+	}()
 
 	go func() {
 		tick := time.Tick(time.Second)

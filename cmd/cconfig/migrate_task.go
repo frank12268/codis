@@ -226,6 +226,9 @@ func (t *MigrateTask) preMigrateCheck() error {
 	}
 	// check if there is migrating slot
 	if len(slots) > 1 {
+		for i, slot := range slots {
+			log.Infof("pre migration check [%d/%d] %d: %s", i, len(slots), slot.Id, slot.State.Status)
+		}
 		return errors.Errorf("more than one slots are migrating, unknown error")
 	}
 	if len(slots) == 1 {

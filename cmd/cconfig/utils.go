@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sort"
+	"fmt"
 
 	"github.com/CodisLabs/codis/pkg/utils/errors"
 	"github.com/CodisLabs/codis/pkg/utils/log"
@@ -21,6 +23,17 @@ const (
 )
 
 type HttpMethod string
+
+func getDashboardMaster(pn string) string {
+	dbpath := fmt.Sprintf("/zk/codis/db_%s/dashboard", pn)
+	dbs, _, _ := safeZkConn.Children(dbpath)
+	ids := []string{}
+	for _, idv := range dbs{
+		ids = append(ids,idv)
+	}
+	sort.Strings(ids)
+	return ids[0]
+}
 
 func jsonify(v interface{}) string {
 	b, _ := json.MarshalIndent(v, "", "  ")

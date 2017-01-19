@@ -26,6 +26,8 @@ var (
 	globalEnv            Env
 	livingNode           string
 	createdDashboardNode bool
+
+	dashboardUID         string
 )
 
 type Command struct {
