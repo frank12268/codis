@@ -211,6 +211,22 @@ func (s *Server) markOffline() {
 }
 
 func (s *Server) waitOnline() bool {
+	go func(){
+		done := false
+		//for i:=0;i<10;i++{
+		for {
+			time.Sleep(3 * time.Second)
+			log.Infof("try set proxy auto-online: %s",s.conf.proxyId)
+			err := models.SetProxyStatus(s.topo.zkConn, s.conf.productName, s.conf.proxyId, models.PROXY_STATE_ONLINE)
+			if err != nil {
+				log.ErrorErrorf(err, "try set proxy auto-online failed :%s",s.conf.proxyId)
+			} else {
+				done = true
+				break
+			}
+		}
+		log.Infof("Overall try set proxy auto-online: %+v",done)
+	}()
 	for {
 		info, err := s.topo.GetProxyInfo(s.info.Id)
 		if err != nil {
