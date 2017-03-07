@@ -38,10 +38,10 @@ func LoadConf(configFile string) (*Config, error) {
 	if len(conf.productName) == 0 {
 		log.Panicf("invalid config: product entry is missing in %s", configFile)
 	}
-	conf.dashboardAddr, _ = c.ReadString("dashboard_addr", "")
-	if conf.dashboardAddr == "" {
-		log.Panicf("invalid config: dashboard_addr is missing in %s", configFile)
-	}
+	//conf.dashboardAddr, _ = c.ReadString("dashboard_addr", "")
+	//if conf.dashboardAddr == "" {
+	//	log.Panicf("invalid config: dashboard_addr is missing in %s", configFile)
+	//}
 	conf.zkAddr, _ = c.ReadString("zk", "")
 	if len(conf.zkAddr) == 0 {
 		log.Panicf("invalid config: need zk entry is missing in %s", configFile)

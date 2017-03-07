@@ -6,7 +6,7 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +18,7 @@ import (
 
 	"github.com/CodisLabs/codis/pkg/models"
 	"github.com/CodisLabs/codis/pkg/proxy/router"
+	"github.com/CodisLabs/codis/pkg/utils/errors"
 	"github.com/CodisLabs/codis/pkg/utils/log"
 	"github.com/wandoulabs/go-zookeeper/zk"
 	topo "github.com/wandoulabs/go-zookeeper/zk"
@@ -89,12 +90,28 @@ func New(addr string, debugVarAddr string, conf *Config) *Server {
 
 func (s *Server) SetMyselfOnline() error {
 	log.Info("mark myself online")
+
+	root := fmt.Sprintf("/zk/codis/db_%s/dashboard", s.topo.ProductName)
+	nodes, _, err := s.topo.zkConn.Children(root)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(nodes) == 0 {
+		return errors.New("No dashboard found at zookeeper")
+	}
+	node := nodes[0]
+	nodePath := root + "/" + node
+	dashboardAddr, _, err := s.topo.zkConn.Get(nodePath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	info := models.ProxyInfo{
 		Id:    s.conf.proxyId,
 		State: models.PROXY_STATE_ONLINE,
 	}
 	b, _ := json.Marshal(info)
-	url := "http://" + s.conf.dashboardAddr + "/api/proxy"
+	url := "http://" + string(dashboardAddr[:]) + "/api/proxy"
 	res, err := http.Post(url, "application/json", bytes.NewReader(b))
 	if err != nil {
 		return err
