@@ -55,6 +55,10 @@ func (s *Router) Close() error {
 
 var errClosedRouter = errors.New("use of closed router")
 
+func (s* Router) GetBackendAddr(i int) string {
+	return s.slots[i].backend.addr
+}
+
 func (s *Router) ResetSlot(i int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

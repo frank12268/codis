@@ -140,6 +140,28 @@ func (s *Server) serve() {
 		s.handleConns()
 	}()
 
+	go func() {
+		log.Infof("starting confirm all slots")
+		var ignored, normal, abnormal int
+		for {
+			ignored = 0
+			normal = 0
+			abnormal = 0
+			for i := 0; i < router.MaxSlotNum; i++ {
+				v := s.confirmSlot(i)
+				if v == 0 {
+					normal++
+				} else if v < 0 {
+					abnormal++
+				} else {
+					ignored++
+				}
+				time.Sleep(time.Millisecond*300)
+			}
+			log.Infof("slots confirmation [ignored, abnormal, normal]: %d, %d, %d", ignored, abnormal, normal)
+		}
+	}()
+
 	s.loopEvents()
 }
 
@@ -339,6 +361,24 @@ func (s *Server) fillSlot(i int) {
 	s.groups[i] = slotInfo.GroupId
 	s.router.FillSlot(i, addr, from,
 		slotInfo.State.Status == models.SLOT_STATUS_PRE_MIGRATE)
+}
+
+func (s *Server) confirmSlot(i int) int {
+	slotInfo, slotGroup, err := s.topo.GetSlotByIndex(i)
+	if err != nil {
+		log.PanicErrorf(err, "get slot by index failed", i)
+	}
+	if slotInfo.State.Status == models.SLOT_STATUS_ONLINE {
+		var currentAddr = groupMaster(*slotGroup)
+		var backendAddr = s.router.GetBackendAddr(i)
+		if currentAddr != backendAddr {
+			log.Warnf("currentAddr = %s != %s = backendAddr[%d]", currentAddr, backendAddr, i)
+			s.router.FillSlot(i, currentAddr, "", false)
+			return -1
+		}
+		return 0
+	}
+	return 1
 }
 
 func (s *Server) onSlotRangeChange(param *models.SlotMultiSetParam) {
