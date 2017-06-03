@@ -61,6 +61,7 @@ options:
 
 var (
 	proxiesSpeed int64
+	lastPing int64
 	safeZkConn   zkhelper.Conn
 	unsafeZkConn zkhelper.Conn
 )
@@ -270,6 +271,7 @@ func CheckAliveAndPromote(groups []*models.ServerGroup) ([]models.Server, error)
 			return crashedServer, err
 		}
 	}
+
 	return crashedServer, nil
 }
 
@@ -356,12 +358,15 @@ func runDashboard(addr string, httpLogFile string) {
 
 	go func(){
 		for {
-			log.Info("Calling HA")
+			//log.Info("Calling HA")
 			groups, err := models.ServerGroups(safeZkConn, globalEnv.ProductName())
 			if err != nil {
 				log.ErrorErrorf(err, "call ServerGroups failed")
 			}
-			CheckAliveAndPromote(groups)
+			crashedServer, err := CheckAliveAndPromote(groups)
+			if (err == nil) && (len(crashedServer)==0) {
+				atomic.StoreInt64(&lastPing, time.Now().Unix())
+			}
 			time.Sleep(3 * time.Second)
 		}
 	}()

@@ -64,6 +64,7 @@ func apiOverview() (int, string) {
 	info := make(map[string]interface{})
 	info["product"] = globalEnv.ProductName()
 	info["ops"] = proxiesSpeed
+	info["last_ping"] = lastPing
 
 	redisInfos := make([]map[string]string, 0)
 
